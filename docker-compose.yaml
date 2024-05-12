@@ -100,6 +100,9 @@ services:
     restart: always
 
   airflow-webserver:
+    build:
+      context: .
+      dockerfile: Dockerfile
     <<: *airflow-common
     command: webserver
     ports:

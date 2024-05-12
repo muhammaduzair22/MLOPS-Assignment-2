@@ -8,10 +8,6 @@ nltk.download('punkt')
 nltk.download('stopwords')
 nltk.download('wordnet')
 
-# Define dawn_articles and bbc_articles variables
-dawn_articles = []
-bbc_articles = []
-
 # Function for data preprocessing
 def preprocess_text(text):
     # Tokenization
@@ -35,7 +31,7 @@ def load_from_csv(filename):
             data.append({'title': row['title'], 'description': row['description']})
     return data
 
-# Load data from CSV files into dawn_articles and bbc_articles
+# Load data from CSV files
 dawn_articles = load_from_csv('dawn_articles.csv')
 bbc_articles = load_from_csv('bbc_articles.csv')
 
@@ -57,7 +53,7 @@ def save_to_csv(data, filename):
             writer.writerow(article)
 
 # Save preprocessed Dawn.com articles to CSV
-save_to_csv(dawn_articles, 'preprocessed_dawn_articles.csv')
+save_to_csv(dawn_articles, 'final_preprocessed_dawn_articles.csv')
 
 # Save preprocessed BBC.com articles to CSV
-save_to_csv(bbc_articles, 'preprocessed_bbc_articles.csv')
+save_to_csv(bbc_articles, 'final_preprocessed_bbc_articles.csv')
