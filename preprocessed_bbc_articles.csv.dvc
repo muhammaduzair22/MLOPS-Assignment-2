@@ -1,0 +1,5 @@
+outs:
+- md5: 80e4b93f94eeecb0a2f584bf77a8be3f
+  size: 166
+  hash: md5
+  path: preprocessed_bbc_articles.csv
