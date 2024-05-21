@@ -10,9 +10,7 @@ sys.path.insert(0, parent_dir)
 from airflow import DAG
 from airflow.operators.python_operator import PythonOperator
 from datetime import datetime, timedelta
-from data_extraction import extract_dawn_links, extract_dawn_articles, extract_bbc_links, extract_bbc_articles
-from data_transformation import preprocess_text, load_from_csv, save_to_csv
-import os
+from data_scrapping import extract_dawn_articles, extract_bbc_articles, preprocess_text, save_to_csv
 
 default_args = {
     'owner': 'airflow',
@@ -32,7 +30,23 @@ dag = DAG(
     catchup=False
 )
 
-# Initialize DVC in the project directory
+# Function to combine extraction and preprocessing
+def extract_and_preprocess():
+    # Extract data
+    dawn_articles = extract_dawn_articles()
+    bbc_articles = extract_bbc_articles()
+
+    # Combine articles from both sources
+    all_articles = dawn_articles + bbc_articles
+
+    # Apply preprocessing to all articles
+    for article in all_articles:
+        article['description'] = preprocess_text(article['description'])
+
+    # Save preprocessed data to CSV
+    save_to_csv(all_articles, 'final_preprocessed_articles.csv')
+
+# Task to initialize DVC
 init_dvc_task = PythonOperator(
     task_id='init_dvc',
     python_callable=os.system,
@@ -40,7 +54,7 @@ init_dvc_task = PythonOperator(
     dag=dag
 )
 
-# Add Google Drive remote for DVC
+# Task to add Google Drive remote for DVC
 add_gdrive_remote_task = PythonOperator(
     task_id='add_gdrive_remote',
     python_callable=os.system,
@@ -48,73 +62,43 @@ add_gdrive_remote_task = PythonOperator(
     dag=dag
 )
 
-# Task to extract links from Dawn.com
-extract_dawn_links_task = PythonOperator(
-    task_id='extract_dawn_links',
-    python_callable=extract_dawn_links,
+# Task to extract and preprocess data
+extract_and_preprocess_task = PythonOperator(
+    task_id='extract_and_preprocess',
+    python_callable=extract_and_preprocess,
     dag=dag
 )
 
-# Task to extract articles from Dawn.com
-extract_dawn_articles_task = PythonOperator(
-    task_id='extract_dawn_articles',
-    python_callable=extract_dawn_articles,
+# Task to add the CSV file to DVC
+def add_to_dvc():
+    os.system('dvc add final_preprocessed_articles.csv')
+
+add_to_dvc_task = PythonOperator(
+    task_id='add_to_dvc',
+    python_callable=add_to_dvc,
     dag=dag
 )
 
-# Task to extract links from BBC.com
-extract_bbc_links_task = PythonOperator(
-    task_id='extract_bbc_links',
-    python_callable=extract_bbc_links,
+# Task to commit the changes to DVC
+def commit_dvc():
+    os.system('dvc commit -m "Added final preprocessed articles"')
+
+commit_dvc_task = PythonOperator(
+    task_id='commit_dvc',
+    python_callable=commit_dvc,
     dag=dag
 )
 
-# Task to extract articles from BBC.com
-extract_bbc_articles_task = PythonOperator(
-    task_id='extract_bbc_articles',
-    python_callable=extract_bbc_articles,
+# Task to push the changes to the remote DVC storage
+def push_to_dvc():
+    os.system('dvc push')
+
+push_to_dvc_task = PythonOperator(
+    task_id='push_to_dvc',
+    python_callable=push_to_dvc,
     dag=dag
 )
-
-# Update the task to preprocess Dawn.com articles to remove the usage of save_to_csv
-preprocess_dawn_articles_task = PythonOperator(
-    task_id='preprocess_dawn_articles',
-    python_callable=preprocess_text,
-    op_kwargs={'data': extract_dawn_articles()},  # Load directly from extraction
-    dag=dag
-)
-
-# Update the task to preprocess BBC.com articles to remove the usage of save_to_csv
-preprocess_bbc_articles_task = PythonOperator(
-    task_id='preprocess_bbc_articles',
-    python_callable=preprocess_text,
-    op_kwargs={'data': extract_bbc_articles()},  # Load directly from extraction
-    dag=dag
-)
-
-# Task to save preprocessed Dawn.com articles to CSV
-# save_preprocessed_dawn_articles_task = PythonOperator(
-#     task_id='save_preprocessed_dawn_articles',
-#     python_callable=save_to_csv,
-#     op_kwargs={'data': preprocess_dawn_articles_task.output, 'filename': 'preprocessed_dawn_articles.csv'},
-#     dag=dag
-# )
-
-# Task to save preprocessed BBC.com articles to CSV
-# save_preprocessed_bbc_articles_task = PythonOperator(
-#     task_id='save_preprocessed_bbc_articles',
-#     python_callable=save_to_csv,
-#     op_kwargs={'data': preprocess_bbc_articles_task.output, 'filename': 'preprocessed_bbc_articles.csv'},
-#     dag=dag
-# )
 
 # Define task dependencies
-init_dvc_task >> add_gdrive_remote_task
-add_gdrive_remote_task >> extract_dawn_links_task
-add_gdrive_remote_task >> extract_bbc_links_task
-extract_dawn_links_task >> extract_dawn_articles_task
-extract_bbc_links_task >> extract_bbc_articles_task
-extract_dawn_articles_task >> preprocess_dawn_articles_task
-extract_bbc_articles_task >> preprocess_bbc_articles_task
-# preprocess_dawn_articles_task >> save_preprocessed_dawn_articles_task
-# preprocess_bbc_articles_task >> save_preprocessed_bbc_articles_task
+init_dvc_task >> add_gdrive_remote_task >> extract_and_preprocess_task
+extract_and_preprocess_task >> add_to_dvc_task >> commit_dvc_task >> push_to_dvc_task
