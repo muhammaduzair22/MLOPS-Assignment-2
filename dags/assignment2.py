@@ -8,7 +8,7 @@ print("Parent directory:", parent_dir)
 sys.path.insert(0, parent_dir)
 
 from airflow import DAG
-from airflow.operators.python_operator import PythonOperator
+from airflow.operators.python_operator import PythonOperator # type: ignore
 from datetime import datetime, timedelta
 from data_scrapping import extract_dawn_articles, extract_bbc_articles, preprocess_text, save_to_csv
 
